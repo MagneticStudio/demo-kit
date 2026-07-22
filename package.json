@@ -1,0 +1,10 @@
+{
+	"name": "demo-kit",
+	"version": "0.1.0",
+	"description": "Playwright layer for recording human-watchable demo videos that double as e2e tests",
+	"main": "index.ts",
+	"types": "index.ts",
+	"peerDependencies": {
+		"@playwright/test": ">=1.40.0"
+	}
+}
