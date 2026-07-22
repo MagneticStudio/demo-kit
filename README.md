@@ -6,9 +6,9 @@ in or install it as a path/git dependency.
 
 What it gives you:
 
-- **Two modes from one spec.** Demo (default): slowMo, paced holds, cursor overlay, always-on
-  video. CI (`DEMO=false`): all of that off, video retain-on-failure, retries on. Same spec runs
-  ~5x faster in CI mode.
+- **Two modes from one spec.** Default is plain Playwright: fast, video retain-on-failure,
+  retries on. `DEMO=true` opts into recording: slowMo, paced holds, cursor overlay, always-on
+  video. Conventional usage stays conventional — recording is the add-on.
 - **Visible cursor** — SVG arrow that glides between targets (Playwright's pointer teleports;
   a CSS transition smooths it), click ripple, kept above native `<dialog>` modals via the
   Popover API. Defaults to localhost-only because strict-CSP pages (e.g. hosted auth UIs) block
@@ -54,7 +54,7 @@ test('walkthrough', async ({ page }) => {
 })
 ```
 
-Scripts: `"record": "playwright test"` and `"test": "DEMO=false playwright test"`.
+Scripts: `"test": "playwright test"` and `"record": "DEMO=true playwright test"`.
 
 Ship the video (Playwright records webm):
 
@@ -80,7 +80,7 @@ with your own fixtures.
 
 | Env var | Default | Meaning |
 | --- | --- | --- |
-| `DEMO` | `true` | `false` = CI mode |
+| `DEMO` | `false` | `true` (or `1`) = recording mode |
 | `DEMO_PAUSE` | 2200 | ms hold per scene |
 | `DEMO_SETTLE` | 550 | ms cursor-glide settle before clicks |
 | `DEMO_SLOWMO` | 450 | Playwright slowMo ms |

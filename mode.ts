@@ -1,6 +1,6 @@
-// Demo mode (default) paces the run and records a human-watchable video.
-// CI mode (DEMO=false) runs fast and headless as a plain e2e assertion pass.
-export const DEMO = process.env.DEMO !== 'false'
+// Default is plain Playwright behavior (fast, headless, video only on failure).
+// DEMO=true opts into recording mode: slowMo, paced holds, cursor overlay, always-on video.
+export const DEMO = process.env.DEMO === 'true' || process.env.DEMO === '1'
 
 export const PAUSE = DEMO ? Number(process.env.DEMO_PAUSE ?? 2200) : 0
 export const SETTLE = DEMO ? Number(process.env.DEMO_SETTLE ?? 550) : 0
