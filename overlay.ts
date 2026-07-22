@@ -129,17 +129,29 @@ export interface DemoTestOptions {
 	cursor?: CursorPolicy
 }
 
-// Playwright test with the demo overlays auto-installed (no-op when DEMO=false).
+export interface DemoFixtures {
+	demoOverlay: void
+}
+
+// Raw fixtures, for composing with an existing extended test via mergeTests:
+//   import { mergeTests } from '@playwright/test'
+//   export const test = mergeTests(myAuthTest, demoTest)
+// or directly: myAuthTest.extend(demoFixtures())
+export const demoFixtures = (
+	options: DemoTestOptions = {},
+): Parameters<typeof base.extend<DemoFixtures>>[0] => ({
+	demoOverlay: [
+		async ({ page }, use) => {
+			if (DEMO) await page.addInitScript(overlayScript(options.cursor ?? 'local-only'))
+			await use()
+		},
+		{ auto: true },
+	],
+})
+
+// Playwright test with the demo overlays auto-installed (no-op unless DEMO=true).
 export const createDemoTest = (options: DemoTestOptions = {}) =>
-	base.extend<{ demoOverlay: void }>({
-		demoOverlay: [
-			async ({ page }, use) => {
-				if (DEMO) await page.addInitScript(overlayScript(options.cursor ?? 'local-only'))
-				await use()
-			},
-			{ auto: true },
-		],
-	})
+	base.extend<DemoFixtures>(demoFixtures(options))
 
 export const test = createDemoTest()
 export { expect }

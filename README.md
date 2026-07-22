@@ -76,6 +76,22 @@ Deliberately out of scope — it's app-specific. Two proven strategies:
 The kit composes with either — `createDemoTest()` returns a Playwright `test` you can extend
 with your own fixtures.
 
+## Already have a custom `test`?
+
+Importing our `test` is only needed because Playwright fixtures live on a `test` instance
+(the standard pattern for shipping fixtures). If you already extend your own, compose instead:
+
+```ts
+import { mergeTests } from '@playwright/test'
+import { test as demoTest } from 'demo-kit'
+import { test as authTest } from './auth.fixture'
+
+export const test = mergeTests(authTest, demoTest)
+```
+
+or `authTest.extend(demoFixtures())`. And `expect` is an unmodified re-export — importing it
+from `@playwright/test` works identically.
+
 ## Knobs
 
 | Env var | Default | Meaning |
