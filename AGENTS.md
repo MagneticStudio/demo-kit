@@ -5,14 +5,47 @@ must behave exactly as before; `DEMO=true` produces a paced, captioned, cursor-v
 
 ## 1. Install
 
-If the project can reach the repo:
+Choose one installation method.
+
+### Git dependency
+
+If the project can reach the repo and its Git credentials have access:
 
 ```bash
-npm install --save-dev github:MagneticStudio/demo-kit
+npm install --save-dev github:MagneticStudio/demo-kit#main
 ```
 
-Otherwise vendor it: copy the kit's `*.ts` files into `e2e/demo-kit/` (it is self-contained;
-only peer-dep is `@playwright/test >= 1.40`). Adjust import paths below accordingly.
+The consuming project's lockfile pins the resolved commit. Re-run the command to update deliberately.
+
+### Vendored source
+
+If Git installation is unavailable or the team prefers checked-in source, copy exactly these files
+from one demo-kit commit or release into `e2e/demo-kit/`:
+
+```text
+config.ts
+helpers.ts
+index.ts
+mode.ts
+overlay.ts
+```
+
+Do not copy `dist/`, `package.json`, `package-lock.json`, `tsconfig.json`, `tsdown.config.mts`, or
+demo-kit's tests. Those belong to package development, not the vendored runtime. When updating,
+replace all five source files together so their internal imports and APIs stay in sync.
+
+For this layout, use local imports in the remaining steps:
+
+```ts
+// playwright.config.ts
+import { demoConfigDefaults, demoProjectUse } from './e2e/demo-kit'
+
+// e2e/walkthrough.spec.ts
+import { test, expect, setCaption, hold, smoothClick } from './demo-kit'
+```
+
+Adjust those paths if the project uses a different layout. The vendored source is self-contained;
+its only dependency is `@playwright/test >= 1.40`.
 
 If the project has no Playwright yet: `npm i -D @playwright/test && npx playwright install chromium`.
 

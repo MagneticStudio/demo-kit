@@ -18,6 +18,59 @@ What it gives you:
 - **Config factories** encoding the sharp edges: explicit `video.size` (bare `'on'` downscales
   to 800px), slowMo wiring, spread-order vs `devices` presets.
 
+## Installation
+
+Install directly from GitHub:
+
+```bash
+npm install --save-dev github:MagneticStudio/demo-kit#main
+```
+
+The consuming project's lockfile pins the resolved commit. Run the same command again when you
+want to update to the latest `main`.
+
+### Vendoring the TypeScript source
+
+If the consuming project cannot or should not install a Git dependency, copy these five files from
+the same demo-kit checkout into `e2e/demo-kit/`:
+
+```text
+config.ts
+helpers.ts
+index.ts
+mode.ts
+overlay.ts
+```
+
+The vendored layout can look like this:
+
+```text
+e2e/
+  demo-kit/
+    config.ts
+    helpers.ts
+    index.ts
+    mode.ts
+    overlay.ts
+  walkthrough.spec.ts
+playwright.config.ts
+```
+
+Use local imports instead of the package name:
+
+```ts
+// playwright.config.ts
+import { demoConfigDefaults, demoProjectUse } from './e2e/demo-kit'
+
+// e2e/walkthrough.spec.ts
+import { test, expect, setCaption, hold, smoothClick } from './demo-kit'
+```
+
+Only `@playwright/test >= 1.40` is required. Do not copy `dist/`, `package.json`, the tsdown or
+TypeScript build configuration, or demo-kit's tests; those support package development rather than
+the vendored runtime. When updating a vendored copy, replace all five source files together from one
+commit or release so they cannot drift out of sync.
+
 ## Setup
 
 ```ts
