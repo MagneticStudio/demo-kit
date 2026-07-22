@@ -1,14 +1,14 @@
 # demo-kit
 
 Portable Playwright layer for recording human-watchable demo videos that double as e2e tests.
-Self-contained — depends only on `@playwright/test`. Ships as TypeScript source; copy the folder
-in or install it as a path/git dependency.
+Self-contained — its only runtime peer is `@playwright/test`. Git/package installs build to
+JavaScript with declarations; a checkout can also be vendored as TypeScript source.
 
 What it gives you:
 
-- **Two modes from one spec.** Default is plain Playwright: fast, video retain-on-failure,
-  retries on. `DEMO=true` opts into recording: slowMo, paced holds, cursor overlay, always-on
-  video. Conventional usage stays conventional — recording is the add-on.
+- **Two modes from one spec.** Default is the consumer's Playwright behavior, unchanged.
+  `DEMO=true` opts into recording: one worker, no retries, slowMo, paced holds, cursor overlay,
+  and always-on video. Conventional usage stays conventional — recording is the add-on.
 - **Visible cursor** — SVG arrow that glides between targets (Playwright's pointer teleports;
   a CSS transition smooths it), click ripple, kept above native `<dialog>` modals via the
   Popover API. Defaults to localhost-only because strict-CSP pages (e.g. hosted auth UIs) block
@@ -23,11 +23,11 @@ What it gives you:
 ```ts
 // playwright.config.ts
 import { defineConfig, devices } from '@playwright/test'
-import { demoConfigDefaults, demoProjectUse } from './demo-kit'
+import { demoConfigDefaults, demoProjectUse } from 'demo-kit'
 
 export default defineConfig({
 	testDir: './tests',
-	...demoConfigDefaults(), // workers: 1, retries by mode, video by mode
+	...demoConfigDefaults(), // recording overrides only when DEMO=true
 	projects: [
 		{
 			name: 'myapp',
@@ -43,7 +43,7 @@ export default defineConfig({
 
 ```ts
 // tests/walkthrough.spec.ts
-import { test, expect, setCaption, hold, smoothClick } from '../demo-kit'
+import { test, expect, setCaption, hold, smoothClick } from 'demo-kit'
 
 test('walkthrough', async ({ page }) => {
 	await page.goto('/thing')
@@ -73,8 +73,9 @@ Deliberately out of scope — it's app-specific. Two proven strategies:
   storage that a dormant, env-gated hook in the app promotes into its auth state on boot.
   Fast and skips login entirely, but only works on builds you control.
 
-The kit composes with either — `createDemoTest()` returns a Playwright `test` you can extend
-with your own fixtures.
+The kit composes with either — `createDemoTest()` returns Playwright's unchanged base `test`
+outside demo mode and a context-instrumented `test` in demo mode. You can extend either with
+your own fixtures; popups and new tabs created in demo mode inherit the overlay.
 
 ## Already have a custom `test`?
 
@@ -102,3 +103,19 @@ from `@playwright/test` works identically.
 | `DEMO_SLOWMO` | 450 | Playwright slowMo ms |
 
 `createDemoTest({ cursor: 'always' | 'local-only' | 'never' })` controls the cursor overlay.
+Timing overrides must be finite, non-negative numbers. Video width and height must be positive
+integers.
+
+## Development
+
+```bash
+npm install
+npx playwright install chromium
+npm test
+```
+
+`npm test` builds and type-checks the distributable, verifies the packed artifact, confirms plain
+mode stays browser-free for API-only tests, and exercises overlays, popups, and modal stacking in
+Chromium. `tsdown` produces the ESM, CommonJS, source-map, and declaration outputs; `tsc --noEmit`
+remains the independent type-check, while `publint` and Are the Types Wrong validate the packed
+package.

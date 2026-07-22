@@ -2,9 +2,46 @@
 	"name": "demo-kit",
 	"version": "0.1.0",
 	"description": "Playwright layer for recording human-watchable demo videos that double as e2e tests",
-	"main": "index.ts",
-	"types": "index.ts",
+	"type": "commonjs",
+	"sideEffects": false,
+	"main": "./dist/index.cjs",
+	"types": "./dist/index.d.mts",
+	"exports": {
+		".": {
+			"import": "./dist/index.mjs",
+			"require": "./dist/index.cjs"
+		},
+		"./package.json": "./package.json"
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"AGENTS.md"
+	],
+	"engines": {
+		"node": ">=18"
+	},
+	"scripts": {
+		"build": "tsdown",
+		"check:package": "publint && attw --pack .",
+		"typecheck": "tsc --project tsconfig.json",
+		"prepare": "tsdown",
+		"test": "npm run typecheck && npm run build && npm run check:package && npm run test:unit && npm run test:plain && npm run test:demo",
+		"test:unit": "node --test --test-concurrency=1 tests/*.test.cjs",
+		"test:plain": "cross-env DEMO=false playwright test --config tests/playwright.config.ts plain.spec.ts",
+		"test:demo": "cross-env DEMO=true playwright test --config tests/playwright.config.ts demo.spec.ts"
+	},
 	"peerDependencies": {
 		"@playwright/test": ">=1.40.0"
-	}
+	},
+	"devDependencies": {
+		"@arethetypeswrong/cli": "0.18.5",
+		"@playwright/test": "^1.55.0",
+		"@types/node": "^22.0.0",
+		"cross-env": "^7.0.3",
+		"publint": "0.3.21",
+		"tsdown": "0.22.13",
+		"typescript": "^5.8.3"
+	},
+	"module": "./dist/index.mjs"
 }

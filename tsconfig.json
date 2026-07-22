@@ -1,0 +1,15 @@
+{
+	"compilerOptions": {
+		"isolatedModules": true,
+		"lib": ["ES2022", "DOM"],
+		"module": "Preserve",
+		"moduleDetection": "force",
+		"moduleResolution": "Bundler",
+		"noEmit": true,
+		"strict": true,
+		"target": "ES2022",
+		"types": ["node"],
+		"verbatimModuleSyntax": true
+	},
+	"include": ["index.ts", "config.ts", "helpers.ts", "mode.ts", "overlay.ts"]
+}

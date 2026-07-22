@@ -104,12 +104,18 @@ const overlayScript = (cursorPolicy: CursorPolicy) => `(() => {
 			setTimeout(() => ripple.remove(), 550)
 		}, true)
 
-		let dialogOpen = false
+		let topDialog = null
 		new MutationObserver(() =>
 			requestAnimationFrame(() => {
-				const open = !!document.querySelector('dialog[open]')
-				if (open && !dialogOpen && seen) showTopLayer(cursor)
-				dialogOpen = open
+				const dialogs = document.querySelectorAll('dialog[open]')
+				const open = dialogs.length ? dialogs[dialogs.length - 1] : null
+				if (open && open !== topDialog) {
+					// Opening a modal closes existing popovers, but the caption text still records whether
+					// it should be visible. Re-open it after the dialog enters the top layer.
+					if (caption.textContent) showTopLayer(caption)
+					if (seen) showTopLayer(cursor)
+				}
+				topDialog = open
 			}),
 		).observe(document.documentElement, {
 			childList: true,
@@ -139,19 +145,23 @@ export interface DemoFixtures {
 // or directly: myAuthTest.extend(demoFixtures())
 export const demoFixtures = (
 	options: DemoTestOptions = {},
-): Parameters<typeof base.extend<DemoFixtures>>[0] => ({
-	demoOverlay: [
-		async ({ page }, use) => {
-			if (DEMO) await page.addInitScript(overlayScript(options.cursor ?? 'local-only'))
-			await use()
-		},
-		{ auto: true },
-	],
-})
+): Parameters<typeof base.extend<DemoFixtures>>[0] => {
+	if (!DEMO) return {}
+	return {
+		demoOverlay: [
+			async ({ context }, use) => {
+				await context.addInitScript(overlayScript(options.cursor ?? 'local-only'))
+				await use()
+			},
+			{ auto: true },
+		],
+	}
+}
 
-// Playwright test with the demo overlays auto-installed (no-op unless DEMO=true).
+// Return Playwright's base test unchanged outside demo mode, so importing demo-kit does not cause
+// API-only tests to acquire a browser context. Context-scoped injection covers popups/new tabs.
 export const createDemoTest = (options: DemoTestOptions = {}) =>
-	base.extend<DemoFixtures>(demoFixtures(options))
+	DEMO ? base.extend<DemoFixtures>(demoFixtures(options)) : base
 
 export const test = createDemoTest()
 export { expect }

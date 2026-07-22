@@ -6,20 +6,31 @@ export interface DemoConfigOptions {
 	height?: number
 }
 
-// Top-level config defaults for a demo-capable suite: serial workers (one continuous video),
-// retries only in CI mode, video always-on in demo / retain-on-failure in CI.
-export const demoConfigDefaults = (
-	options: DemoConfigOptions = {},
-): Pick<PlaywrightTestConfig, 'workers' | 'retries' | 'use'> => {
+const dimensions = (options: DemoConfigOptions) => {
 	const width = options.width ?? 1440
 	const height = options.height ?? 900
+	for (const [name, value] of Object.entries({ width, height })) {
+		if (!Number.isInteger(value) || value <= 0) {
+			throw new Error(`${name} must be a positive integer; received ${JSON.stringify(value)}`)
+		}
+	}
+	return { width, height }
+}
+
+// Top-level config additions for recording mode. Returning no keys outside demo mode keeps a
+// consumer's normal workers, retries, tracing, and video behavior untouched.
+export const demoConfigDefaults = (
+	options: DemoConfigOptions = {},
+): Partial<Pick<PlaywrightTestConfig, 'workers' | 'retries' | 'use'>> => {
+	if (!DEMO) return {}
+	const { width, height } = dimensions(options)
 	return {
 		workers: 1,
-		retries: DEMO ? 0 : 2,
+		retries: 0,
 		use: {
 			viewport: { width, height },
 			// Passing 'on' alone downscales the video to 800px — the explicit size keeps it 1:1.
-			video: DEMO ? { mode: 'on', size: { width, height } } : 'retain-on-failure',
+			video: { mode: 'on', size: { width, height } },
 			trace: 'retain-on-failure',
 		},
 	}
@@ -28,8 +39,8 @@ export const demoConfigDefaults = (
 // Per-project `use` additions. Spread AFTER a devices preset — presets carry their own
 // viewport/launchOptions that would otherwise override these.
 export const demoProjectUse = (options: DemoConfigOptions = {}) => {
-	const width = options.width ?? 1440
-	const height = options.height ?? 900
+	if (!DEMO) return {}
+	const { width, height } = dimensions(options)
 	return {
 		viewport: { width, height },
 		launchOptions: { slowMo: SLOWMO },

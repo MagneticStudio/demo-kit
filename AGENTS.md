@@ -27,7 +27,7 @@ import { demoConfigDefaults, demoProjectUse } from 'demo-kit'
 
 export default defineConfig({
 	testDir: './tests',
-	...demoConfigDefaults(), // workers: 1, retries/video switch on DEMO
+	...demoConfigDefaults(), // returns recording overrides only when DEMO=true
 	projects: [
 		{
 			name: 'app',
@@ -41,8 +41,9 @@ export default defineConfig({
 })
 ```
 
-Preserve any existing config keys; only merge these in. If the project already sets `workers`,
-`retries`, or `video`, the demo-kit values should win only if the team agrees — ask.
+Preserve any existing config keys; the factories return no overrides outside demo mode. In demo
+mode, if the project already sets `workers`, `retries`, `viewport`, `launchOptions`, or `video`,
+the demo-kit values should win only if the team agrees — ask.
 
 ## 3. Scripts
 
