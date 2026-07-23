@@ -25,7 +25,7 @@ jobs:
       github.event_name != 'issue_comment' ||
       (github.event.issue.pull_request && contains(github.event.comment.body, '@codex review'))
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 17
     steps:
       - name: Require Codex approval or resolved feedback
         uses: actions/github-script@v7
@@ -126,8 +126,9 @@ jobs:
               return threads
             }
 
+            const maxAttempts = 45
             let sawUnresolved = false
-            for (let attempt = 0; attempt < 30; attempt += 1) {
+            for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
               const [reactions, threads] = await Promise.all([
                 github.paginate(github.rest.reactions.listForIssue, {
                   owner,
@@ -146,7 +147,7 @@ jobs:
                 const locations = unresolved
                   .map((thread) => `${thread.path}${thread.line ? `:${thread.line}` : ''}`)
                   .join(', ')
-                if (attempt < 29) {
+                if (attempt < maxAttempts - 1) {
                   core.info(`Waiting for Codex feedback to be resolved: ${locations}`)
                   await new Promise((resolve) => setTimeout(resolve, 20_000))
                   continue
@@ -182,8 +183,12 @@ jobs:
                 return
               }
 
-              if (attempt < 29) await new Promise((resolve) => setTimeout(resolve, 20_000))
+              if (attempt < maxAttempts - 1) {
+                await new Promise((resolve) => setTimeout(resolve, 20_000))
+              }
             }
 
-            await setStatus('failure', 'Codex review did not complete in time')
-            core.setFailed('No Codex approval or review feedback appeared within ten minutes')
+            await setStatus('failure', 'Review timed out; comment @codex review')
+            core.setFailed(
+              'No Codex approval or review feedback appeared within fifteen minutes. Comment @codex review after Codex finishes to recheck.',
+            )
