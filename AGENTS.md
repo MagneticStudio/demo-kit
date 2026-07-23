@@ -143,7 +143,8 @@ The kit does not handle auth. Ask which strategy the project uses before writing
 Wait for the required `codex-review` status. It passes when Codex reacts with 👍 to the latest
 revision or every Codex review thread is resolved after the latest revision. Never merge while that
 status is pending or failing, even if the test suite is green. After addressing feedback, comment
-`@codex review` on the pull request to trigger an immediate recheck.
+`@codex review` on the pull request to trigger an immediate recheck. If Codex finishes after the
+gate's polling window, use the same comment to recheck its late approval.
 
 ## Known failure modes
 
