@@ -70,10 +70,13 @@ jobs:
                 status.state === 'failure' &&
                 status.description?.includes('unresolved Codex review thread'),
             )
-            const revisionStartedAt = Math.min(
-              ...existingReviewStatuses.map((status) => Date.parse(status.created_at)),
-              Date.now(),
-            )
+            const revisionTimestamps = existingReviewStatuses
+              .map((status) => Date.parse(status.created_at))
+              .filter(Number.isFinite)
+            const eventRevisionAt = Date.parse(context.payload.pull_request?.updated_at ?? '')
+            if (Number.isFinite(eventRevisionAt)) revisionTimestamps.push(eventRevisionAt)
+            const revisionStartedAt =
+              revisionTimestamps.length > 0 ? Math.min(...revisionTimestamps) : Date.now()
             const isFresh = (value) =>
               Boolean(value) && Date.parse(value) >= revisionStartedAt
             const targetUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`
