@@ -8,6 +8,9 @@ import WebSocket from 'ws'
 
 const USER_ATTACHMENT_URL =
 	/https:\/\/github\.com\/user-attachments\/(?:assets|files)\/[A-Za-z0-9._/-]+/
+const PR_DEMO_MARKER_PREFIX = '<!-- demo-kit:recording:'
+const PR_DEMO_MARKER_PATTERN =
+	/<!-- demo-kit:recording:([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?):(start|end) -->/g
 
 export const prDemoAttachmentUsage = `Attach a DemoKit recording to a GitHub pull request.
 
@@ -138,7 +141,37 @@ function occurrenceCount(value: string, search: string): number {
 	}
 }
 
+export function assertValidPrDemoBodyMarkers(body: string): void {
+	const prefixCount = occurrenceCount(body, PR_DEMO_MARKER_PREFIX)
+	const markers = [...body.matchAll(PR_DEMO_MARKER_PATTERN)].map((match) => ({
+		slot: match[1] as string,
+		type: match[2] as 'end' | 'start',
+	}))
+	if (markers.length !== prefixCount) {
+		throw new Error('PR description contains an invalid DemoKit recording marker')
+	}
+
+	const completedSlots = new Set<string>()
+	let openSlot: string | undefined
+	for (const marker of markers) {
+		if (marker.type === 'start') {
+			if (openSlot || completedSlots.has(marker.slot)) {
+				throw new Error(`Demo slot "${marker.slot}" has malformed or duplicate markers`)
+			}
+			openSlot = marker.slot
+			continue
+		}
+		if (openSlot !== marker.slot) {
+			throw new Error(`Demo slot "${marker.slot}" markers are out of order`)
+		}
+		completedSlots.add(marker.slot)
+		openSlot = undefined
+	}
+	if (openSlot) throw new Error(`Demo slot "${openSlot}" has malformed or duplicate markers`)
+}
+
 export function upsertPrDemoBodySlot(body: string, block: string, slot: string): string {
+	assertValidPrDemoBodyMarkers(body)
 	const markers = prDemoBodySlotMarkers(slot)
 	const startCount = occurrenceCount(body, markers.start)
 	const endCount = occurrenceCount(body, markers.end)
@@ -159,6 +192,7 @@ export function upsertPrDemoBodySlot(body: string, block: string, slot: string):
 }
 
 export function readPrDemoBodySlot(body: string, slot: string): string | undefined {
+	assertValidPrDemoBodyMarkers(body)
 	const markers = prDemoBodySlotMarkers(slot)
 	const startCount = occurrenceCount(body, markers.start)
 	const endCount = occurrenceCount(body, markers.end)

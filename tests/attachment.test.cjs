@@ -107,6 +107,38 @@ test('fails closed for invalid slots and ambiguous markers', () => {
 			),
 		/markers are out of order/,
 	)
+	assert.throws(
+		() =>
+			attachment.upsertPrDemoBodySlot(
+				'Human content\n\n<!-- demo-kit:recording:secondary:start -->\nUnclosed',
+				block,
+				'primary',
+			),
+		/Demo slot "secondary" has malformed or duplicate markers/,
+	)
+	assert.throws(
+		() =>
+			attachment.upsertPrDemoBodySlot(
+				'Human content\n\n<!-- demo-kit:recording:Invalid:start -->',
+				block,
+				'primary',
+			),
+		/invalid DemoKit recording marker/,
+	)
+	assert.throws(
+		() =>
+			attachment.upsertPrDemoBodySlot(
+				[
+					'<!-- demo-kit:recording:primary:start -->',
+					'<!-- demo-kit:recording:secondary:start -->',
+					'<!-- demo-kit:recording:primary:end -->',
+					'<!-- demo-kit:recording:secondary:end -->',
+				].join('\n'),
+				block,
+				'primary',
+			),
+		/Demo slot "secondary" has malformed or duplicate markers/,
+	)
 })
 
 test('extracts both native attachment URL forms', () => {
