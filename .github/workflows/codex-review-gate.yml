@@ -51,17 +51,24 @@ jobs:
             }
 
             const sha = pull.head.sha
-            const { data: headCommit } = await github.rest.repos.getCommit({
-              owner,
-              repo,
-              ref: sha,
-            })
-            const committedAt = Date.parse(
-              headCommit.commit.committer?.date ?? headCommit.commit.author?.date ?? 0,
+            const existingStatuses = await github.paginate(
+              github.rest.repos.listCommitStatusesForRef,
+              {
+                owner,
+                repo,
+                ref: sha,
+                per_page: 100,
+              },
             )
-            const isFresh = (value) => Boolean(value) && Date.parse(value) >= committedAt
-            const freshRecheck =
-              context.eventName === 'issue_comment' && isFresh(context.payload.comment?.created_at)
+            const existingReviewStatuses = existingStatuses.filter(
+              (status) => status.context === 'codex-review',
+            )
+            const revisionStartedAt = Math.min(
+              ...existingReviewStatuses.map((status) => Date.parse(status.created_at)),
+              Date.now(),
+            )
+            const isFresh = (value) =>
+              Boolean(value) && Date.parse(value) >= revisionStartedAt
             const targetUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`
             const setStatus = (state, description) =>
               github.rest.repos.createCommitStatus({
@@ -149,10 +156,12 @@ jobs:
                   isFresh(reaction.created_at),
               )
               const freshThreadActivity = codexThreads.some((thread) =>
-                thread.comments.nodes.some((comment) => isFresh(comment.createdAt)),
+                thread.comments.nodes.some(
+                  (comment) => isCodex(comment.author?.login) && isFresh(comment.createdAt),
+                ),
               )
               const feedbackAddressed =
-                codexThreads.length > 0 && (sawUnresolved || freshRecheck || freshThreadActivity)
+                codexThreads.length > 0 && (sawUnresolved || freshThreadActivity)
               if (approved || feedbackAddressed) {
                 const description = approved
                   ? 'Codex approved this pull request'
