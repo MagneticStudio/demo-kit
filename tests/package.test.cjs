@@ -27,7 +27,15 @@ test('the packed package contains loadable JavaScript and declarations', (t) => 
 	assert.equal(manifest.main, './dist/index.cjs')
 	assert.equal(manifest.module, './dist/index.mjs')
 	assert.equal(manifest.types, './dist/index.d.mts')
-	for (const expected of ['dist/index.cjs', 'dist/index.mjs', 'dist/index.d.cts', 'dist/index.d.mts']) {
+	assert.equal(manifest.bin['demo-kit-attach'], './dist/attach-pr-demo.mjs')
+	for (const expected of [
+		'dist/index.cjs',
+		'dist/index.mjs',
+		'dist/index.d.cts',
+		'dist/index.d.mts',
+		'dist/attach-pr-demo.mjs',
+		'dist/pr-attachment.mjs',
+	]) {
 		assert.ok(pack.files.some(({ path: file }) => file === expected), `missing ${expected}`)
 	}
 	assert.ok(
