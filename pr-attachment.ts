@@ -175,20 +175,23 @@ export function upsertPrDemoBodySlot(body: string, block: string, slot: string):
 	const markers = prDemoBodySlotMarkers(slot)
 	const startCount = occurrenceCount(body, markers.start)
 	const endCount = occurrenceCount(body, markers.end)
+	let updatedBody: string
 	if (startCount === 0 && endCount === 0) {
-		if (!body) return block
-		if (body.endsWith('\n\n')) return `${body}${block}`
-		if (body.endsWith('\n')) return `${body}\n${block}`
-		return `${body}\n\n${block}`
-	}
-	if (startCount !== 1 || endCount !== 1) {
+		if (!body) updatedBody = block
+		else if (body.endsWith('\n\n')) updatedBody = `${body}${block}`
+		else if (body.endsWith('\n')) updatedBody = `${body}\n${block}`
+		else updatedBody = `${body}\n\n${block}`
+	} else if (startCount !== 1 || endCount !== 1) {
 		throw new Error(`Demo slot "${slot}" has malformed or duplicate markers`)
+	} else {
+		const startIndex = body.indexOf(markers.start)
+		const endIndex = body.indexOf(markers.end)
+		if (endIndex < startIndex) throw new Error(`Demo slot "${slot}" markers are out of order`)
+		updatedBody = `${body.slice(0, startIndex)}${block}${body.slice(endIndex + markers.end.length)}`
 	}
 
-	const startIndex = body.indexOf(markers.start)
-	const endIndex = body.indexOf(markers.end)
-	if (endIndex < startIndex) throw new Error(`Demo slot "${slot}" markers are out of order`)
-	return `${body.slice(0, startIndex)}${block}${body.slice(endIndex + markers.end.length)}`
+	assertValidPrDemoBodyMarkers(updatedBody)
+	return updatedBody
 }
 
 export function readPrDemoBodySlot(body: string, slot: string): string | undefined {

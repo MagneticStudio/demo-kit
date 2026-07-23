@@ -139,6 +139,15 @@ test('fails closed for invalid slots and ambiguous markers', () => {
 			),
 		/Demo slot "secondary" has malformed or duplicate markers/,
 	)
+	const poisonedBlock = attachment.buildPrDemoBodyBlock(
+		'https://example.com/new',
+		'primary',
+		'Unsafe <!-- demo-kit:recording:secondary:start --> marker',
+	)
+	assert.throws(
+		() => attachment.upsertPrDemoBodySlot('Human content', poisonedBlock, 'primary'),
+		/Demo slot "secondary" has malformed or duplicate markers/,
+	)
 })
 
 test('extracts both native attachment URL forms', () => {
