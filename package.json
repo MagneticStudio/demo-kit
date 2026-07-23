@@ -6,6 +6,9 @@
 	"sideEffects": false,
 	"main": "./dist/index.cjs",
 	"types": "./dist/index.d.mts",
+	"bin": {
+		"demo-kit-attach": "./dist/attach-pr-demo.mjs"
+	},
 	"exports": {
 		".": {
 			"import": "./dist/index.mjs",
@@ -34,10 +37,14 @@
 	"peerDependencies": {
 		"@playwright/test": ">=1.40.0"
 	},
+	"dependencies": {
+		"ws": "^8.18.0"
+	},
 	"devDependencies": {
 		"@arethetypeswrong/cli": "0.18.5",
 		"@playwright/test": "^1.55.0",
 		"@types/node": "^22.0.0",
+		"@types/ws": "^8.18.0",
 		"cross-env": "^7.0.3",
 		"publint": "0.3.21",
 		"tsdown": "0.22.13",

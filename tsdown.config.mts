@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-	entry: 'index.ts',
+	entry: ['index.ts', 'pr-attachment.ts', 'attach-pr-demo.ts'],
 	format: ['esm', 'cjs'],
 	platform: 'node',
 	target: 'node18',
@@ -15,6 +15,8 @@ export default defineConfig({
 		neverBundle: true,
 	},
 	exports: {
+		bin: { 'demo-kit-attach': 'attach-pr-demo.ts' },
+		exclude: ['attach-pr-demo', 'pr-attachment'],
 		legacy: true,
 	},
 })

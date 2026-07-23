@@ -11,5 +11,13 @@
 		"types": ["node"],
 		"verbatimModuleSyntax": true
 	},
-	"include": ["index.ts", "config.ts", "helpers.ts", "mode.ts", "overlay.ts"]
+	"include": [
+		"index.ts",
+		"config.ts",
+		"helpers.ts",
+		"mode.ts",
+		"overlay.ts",
+		"pr-attachment.ts",
+		"attach-pr-demo.ts"
+	]
 }

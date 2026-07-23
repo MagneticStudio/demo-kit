@@ -47,6 +47,20 @@ import { test, expect, setCaption, hold, smoothClick } from './demo-kit'
 Adjust those paths if the project uses a different layout. The vendored source is self-contained;
 its only dependency is `@playwright/test >= 1.40`.
 
+### Optional PR attachment CLI
+
+To attach recordings to GitHub PRs without manually driving the upload UI each time, copy these
+two additional files from the same DemoKit commit:
+
+```text
+pr-attachment.ts
+attach-pr-demo.ts
+```
+
+Run `attach-pr-demo.ts` with the consuming project's TypeScript runtime. This optional tool also
+requires `ws`; the core five-file recording runtime does not. Keep the two attachment files in the
+same directory because the executable imports the library relatively.
+
 If the project has no Playwright yet: `npm i -D @playwright/test && npx playwright install chromium`.
 
 ## 2. Wire the config

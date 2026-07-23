@@ -1,7 +1,7 @@
 # demo-kit
 
 Portable Playwright layer for recording human-watchable demo videos that double as e2e tests.
-Self-contained — its only runtime peer is `@playwright/test`. Git/package installs build to
+The recording runtime's only peer is `@playwright/test`. Git/package installs build to
 JavaScript with declarations; a checkout can also be vendored as TypeScript source.
 
 What it gives you:
@@ -17,6 +17,8 @@ What it gives you:
   scene's page loads, not after the interactions, or it shows up late.
 - **Config factories** encoding the sharp edges: explicit `video.size` (bare `'on'` downscales
   to 800px), slowMo wiring, spread-order vs `devices` presets.
+- **PR attachment CLI** — recordings become native GitHub video attachments while the final
+  comment is posted through `gh`, avoiding repeated browser-driving for every pull request.
 
 ## Installation
 
@@ -114,6 +116,32 @@ Ship the video (Playwright records webm):
 ```bash
 ffmpeg -i test-results/<dir>/video.webm -c:v libx264 -pix_fmt yuv420p out.mp4
 ```
+
+## Attach a recording to a pull request
+
+GitHub's public API can create a PR comment but cannot create the native `user-attachments` URL
+for a video. DemoKit uses a dedicated local Chrome profile only for that upload, then uses `gh` to
+post the comment. Sign in once:
+
+```bash
+npx demo-kit-attach --login
+```
+
+Chrome opens as an ordinary browser so hosted identity providers do not reject an automated login.
+The window closes after DemoKit verifies the GitHub session. Then attach recordings headlessly:
+
+```bash
+npx demo-kit-attach --pr 195 --file test-results/demo.mp4 --message "Voice notes walkthrough"
+```
+
+The command uses the current repository and stores its ignored browser profile under
+`.cache/demo-kit/github-attachment`. Use `--repo owner/name`, `--profile-dir path`, or `--headed`
+to override those defaults.
+
+For a vendored install, optionally copy `pr-attachment.ts` and `attach-pr-demo.ts` from the same
+DemoKit commit in addition to the five recording-runtime files. Run the entrypoint with the
+project's TypeScript runtime, for example `bun e2e/demo-kit/attach-pr-demo.ts`. The optional CLI
+also requires `ws`; it does not change the dependencies of the five-file recording runtime.
 
 ## Auth is yours to bring
 
