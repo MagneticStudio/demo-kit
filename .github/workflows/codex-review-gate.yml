@@ -1,0 +1,186 @@
+name: Codex Review Gate
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+  issue_comment:
+    types: [created]
+  workflow_run:
+    workflows: [Codex Review Wake]
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  statuses: write
+
+concurrency:
+  group: codex-review-${{ github.event.pull_request.number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    if: >-
+      github.event_name != 'issue_comment' ||
+      (github.event.issue.pull_request && contains(github.event.comment.body, '@codex review'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Require Codex approval or resolved feedback
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const pullNumber =
+              context.payload.pull_request?.number ??
+              context.payload.issue?.number ??
+              context.payload.workflow_run?.pull_requests?.[0]?.number
+            if (!pullNumber) {
+              core.setFailed('Could not resolve the pull request number')
+              return
+            }
+
+            const { data: pull } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: pullNumber,
+            })
+            if (pull.state !== 'open' || pull.draft) {
+              core.info(`Skipping ${pull.state}${pull.draft ? ' draft' : ''} pull request`)
+              return
+            }
+
+            const sha = pull.head.sha
+            const existingStatuses = await github.paginate(
+              github.rest.repos.listCommitStatusesForRef,
+              {
+                owner,
+                repo,
+                ref: sha,
+                per_page: 100,
+              },
+            )
+            const existingReviewStatuses = existingStatuses.filter(
+              (status) => status.context === 'codex-review',
+            )
+            const previouslyFailedForFeedback = existingReviewStatuses.some(
+              (status) =>
+                status.state === 'failure' &&
+                status.description?.includes('unresolved Codex review thread'),
+            )
+            const revisionStartedAt = Math.min(
+              ...existingReviewStatuses.map((status) => Date.parse(status.created_at)),
+              Date.now(),
+            )
+            const isFresh = (value) =>
+              Boolean(value) && Date.parse(value) >= revisionStartedAt
+            const targetUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`
+            const setStatus = (state, description) =>
+              github.rest.repos.createCommitStatus({
+                owner,
+                repo,
+                sha,
+                context: 'codex-review',
+                state,
+                description,
+                target_url: targetUrl,
+              })
+            const isCodex = (login) =>
+              login?.replace(/\[bot\]$/, '') === 'chatgpt-codex-connector'
+
+            await setStatus('pending', 'Waiting for Codex review')
+
+            const reviewThreads = async () => {
+              const threads = []
+              let cursor = null
+              do {
+                const result = await github.graphql(
+                  `query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                    repository(owner: $owner, name: $repo) {
+                      pullRequest(number: $number) {
+                        reviewThreads(first: 100, after: $cursor) {
+                          pageInfo { hasNextPage endCursor }
+                          nodes {
+                            isResolved
+                            path
+                            line
+                            comments(first: 100) {
+                              nodes { url createdAt author { login } }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }`,
+                  { owner, repo, number: pullNumber, cursor },
+                )
+                const page = result.repository.pullRequest.reviewThreads
+                threads.push(...page.nodes)
+                cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null
+              } while (cursor)
+              return threads
+            }
+
+            let sawUnresolved = false
+            for (let attempt = 0; attempt < 30; attempt += 1) {
+              const [reactions, threads] = await Promise.all([
+                github.paginate(github.rest.reactions.listForIssue, {
+                  owner,
+                  repo,
+                  issue_number: pullNumber,
+                  per_page: 100,
+                }),
+                reviewThreads(),
+              ])
+              const codexThreads = threads.filter((thread) =>
+                thread.comments.nodes.some((comment) => isCodex(comment.author?.login)),
+              )
+              const unresolved = codexThreads.filter((thread) => !thread.isResolved)
+              if (unresolved.length > 0) {
+                sawUnresolved = true
+                const locations = unresolved
+                  .map((thread) => `${thread.path}${thread.line ? `:${thread.line}` : ''}`)
+                  .join(', ')
+                if (attempt < 29) {
+                  core.info(`Waiting for Codex feedback to be resolved: ${locations}`)
+                  await new Promise((resolve) => setTimeout(resolve, 20_000))
+                  continue
+                }
+                await setStatus(
+                  'failure',
+                  `${unresolved.length} unresolved Codex review thread${unresolved.length === 1 ? '' : 's'}`,
+                )
+                core.setFailed(`Resolve Codex feedback before merging: ${locations}`)
+                return
+              }
+
+              const approved = reactions.some(
+                (reaction) =>
+                  isCodex(reaction.user?.login) &&
+                  reaction.content === '+1' &&
+                  isFresh(reaction.created_at),
+              )
+              const freshThreadActivity = codexThreads.some((thread) =>
+                thread.comments.nodes.some(
+                  (comment) => isCodex(comment.author?.login) && isFresh(comment.createdAt),
+                ),
+              )
+              const feedbackAddressed =
+                codexThreads.length > 0 &&
+                (sawUnresolved || previouslyFailedForFeedback || freshThreadActivity)
+              if (approved || feedbackAddressed) {
+                const description = approved
+                  ? 'Codex approved this pull request'
+                  : 'All Codex review threads are resolved'
+                await setStatus('success', description)
+                core.info(description)
+                return
+              }
+
+              if (attempt < 29) await new Promise((resolve) => setTimeout(resolve, 20_000))
+            }
+
+            await setStatus('failure', 'Codex review did not complete in time')
+            core.setFailed('No Codex approval or review feedback appeared within ten minutes')

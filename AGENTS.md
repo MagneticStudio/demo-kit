@@ -138,6 +138,13 @@ The kit does not handle auth. Ask which strategy the project uses before writing
    cursor visible in a frame (`ffmpeg -ss <t> -i <webm> -frames:v 1 frame.png`).
 4. Deliver mp4: `ffmpeg -i <webm> -c:v libx264 -pix_fmt yuv420p out.mp4`.
 
+## 7. Before merge
+
+Wait for the required `codex-review` status. It passes when Codex reacts with 👍 to the latest
+revision or every Codex review thread is resolved after the latest revision. Never merge while that
+status is pending or failing, even if the test suite is green. After addressing feedback, comment
+`@codex review` on the pull request to trigger an immediate recheck.
+
 ## Known failure modes
 
 - Video is 800px wide → something replaced the video setting with bare `'on'`; use
