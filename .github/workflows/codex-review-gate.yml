@@ -63,6 +63,11 @@ jobs:
             const existingReviewStatuses = existingStatuses.filter(
               (status) => status.context === 'codex-review',
             )
+            const previouslyFailedForFeedback = existingReviewStatuses.some(
+              (status) =>
+                status.state === 'failure' &&
+                status.description?.includes('unresolved Codex review thread'),
+            )
             const revisionStartedAt = Math.min(
               ...existingReviewStatuses.map((status) => Date.parse(status.created_at)),
               Date.now(),
@@ -161,7 +166,8 @@ jobs:
                 ),
               )
               const feedbackAddressed =
-                codexThreads.length > 0 && (sawUnresolved || freshThreadActivity)
+                codexThreads.length > 0 &&
+                (sawUnresolved || previouslyFailedForFeedback || freshThreadActivity)
               if (approved || feedbackAddressed) {
                 const description = approved
                   ? 'Codex approved this pull request'
