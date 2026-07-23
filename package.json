@@ -2,6 +2,7 @@
 	"name": "demo-kit",
 	"version": "0.1.0",
 	"description": "Playwright layer for recording human-watchable demo videos that double as e2e tests",
+	"license": "MIT",
 	"type": "commonjs",
 	"sideEffects": false,
 	"main": "./dist/index.cjs",
@@ -19,7 +20,8 @@
 	"files": [
 		"dist",
 		"README.md",
-		"AGENTS.md"
+		"AGENTS.md",
+		"LICENSE"
 	],
 	"engines": {
 		"node": ">=18"

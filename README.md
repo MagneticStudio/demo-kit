@@ -236,3 +236,8 @@ mode stays browser-free for API-only tests, and exercises overlays, popups, and 
 Chromium. `tsdown` produces the ESM, CommonJS, source-map, and declaration outputs; `tsc --noEmit`
 remains the independent type-check, while `publint` and Are the Types Wrong validate the packed
 package.
+
+## License
+
+DemoKit is available under the [MIT License](LICENSE). It is provided as-is, without warranty;
+users are responsible for validating its behavior and protecting credentials in their environments.
