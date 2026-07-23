@@ -17,11 +17,16 @@ One-time browser login:
 Upload and comment:
   demo-kit-attach --pr 195 --file e2e/adhoc/demo.mp4
 
+Upload into a stable PR description slot:
+  demo-kit-attach --pr 195 --file e2e/adhoc/demo.mp4 --placement body --slot primary
+
 Options:
   --login                Sign in to the dedicated local GitHub browser profile
   --pr <number|url>      Pull request number, URL, or branch accepted by gh
   --file <path>          .mp4, .mov, or .webm recording to attach
-  --message <text>       Comment text before the recording
+  --message <text>       Comment text or body caption before the recording
+  --placement <target>   comment (default) or body
+  --slot <name>          Stable body slot name; defaults to primary
   --repo <owner/name>    Repository override; defaults to the current repository
   --profile-dir <path>   Browser profile override
   --headed               Show the browser during upload for debugging
@@ -34,9 +39,11 @@ export interface PrDemoAttachmentOptions {
 	help: boolean
 	login: boolean
 	message?: string
+	placement?: 'body' | 'comment'
 	pr?: string
 	profileDir?: string
 	repo?: string
+	slot?: string
 }
 
 export interface RunPrDemoAttachmentOptions {
@@ -64,7 +71,10 @@ export function parsePrDemoAttachmentArgs(args: string[]): PrDemoAttachmentOptio
 		}
 
 		const name = argument?.startsWith('--') ? argument.slice(2) : undefined
-		if (!name || !['file', 'message', 'pr', 'profile-dir', 'repo'].includes(name)) {
+		if (
+			!name ||
+			!['file', 'message', 'placement', 'pr', 'profile-dir', 'repo', 'slot'].includes(name)
+		) {
 			throw new Error(`Unknown argument: ${argument ?? ''}`)
 		}
 		const value = args[index + 1]
@@ -73,8 +83,14 @@ export function parsePrDemoAttachmentArgs(args: string[]): PrDemoAttachmentOptio
 
 		if (name === 'file') options.file = value
 		else if (name === 'message') options.message = value
-		else if (name === 'pr') options.pr = value
+		else if (name === 'placement') {
+			if (value !== 'body' && value !== 'comment') {
+				throw new Error('--placement must be body or comment')
+			}
+			options.placement = value
+		} else if (name === 'pr') options.pr = value
 		else if (name === 'profile-dir') options.profileDir = value
+		else if (name === 'slot') options.slot = value
 		else options.repo = value
 	}
 
@@ -88,6 +104,72 @@ export function extractGitHubUserAttachmentUrl(markdown: string): string | undef
 export function buildPrDemoComment(file: string, url: string, message?: string): string {
 	const summary = message?.trim() || `DemoKit recording: ${basename(file)}`
 	return `${summary}\n\n${url}`
+}
+
+function assertValidDemoSlot(slot: string): void {
+	if (!/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(slot)) {
+		throw new Error('Demo slot must use 1-64 lowercase letters, numbers, or hyphens')
+	}
+}
+
+export function prDemoBodySlotMarkers(slot: string): { end: string; start: string } {
+	assertValidDemoSlot(slot)
+	return {
+		start: `<!-- demo-kit:recording:${slot}:start -->`,
+		end: `<!-- demo-kit:recording:${slot}:end -->`,
+	}
+}
+
+export function buildPrDemoBodyBlock(url: string, slot: string, message?: string): string {
+	const markers = prDemoBodySlotMarkers(slot)
+	const summary = message?.trim()
+	const content = summary ? `## Demo\n\n${summary}\n\n${url}` : `## Demo\n\n${url}`
+	return `${markers.start}\n${content}\n${markers.end}`
+}
+
+function occurrenceCount(value: string, search: string): number {
+	let count = 0
+	let offset = 0
+	while (true) {
+		const index = value.indexOf(search, offset)
+		if (index === -1) return count
+		count += 1
+		offset = index + search.length
+	}
+}
+
+export function upsertPrDemoBodySlot(body: string, block: string, slot: string): string {
+	const markers = prDemoBodySlotMarkers(slot)
+	const startCount = occurrenceCount(body, markers.start)
+	const endCount = occurrenceCount(body, markers.end)
+	if (startCount === 0 && endCount === 0) {
+		if (!body) return block
+		if (body.endsWith('\n\n')) return `${body}${block}`
+		if (body.endsWith('\n')) return `${body}\n${block}`
+		return `${body}\n\n${block}`
+	}
+	if (startCount !== 1 || endCount !== 1) {
+		throw new Error(`Demo slot "${slot}" has malformed or duplicate markers`)
+	}
+
+	const startIndex = body.indexOf(markers.start)
+	const endIndex = body.indexOf(markers.end)
+	if (endIndex < startIndex) throw new Error(`Demo slot "${slot}" markers are out of order`)
+	return `${body.slice(0, startIndex)}${block}${body.slice(endIndex + markers.end.length)}`
+}
+
+export function readPrDemoBodySlot(body: string, slot: string): string | undefined {
+	const markers = prDemoBodySlotMarkers(slot)
+	const startCount = occurrenceCount(body, markers.start)
+	const endCount = occurrenceCount(body, markers.end)
+	if (startCount === 0 && endCount === 0) return undefined
+	if (startCount !== 1 || endCount !== 1) {
+		throw new Error(`Demo slot "${slot}" has malformed or duplicate markers`)
+	}
+	const startIndex = body.indexOf(markers.start)
+	const endIndex = body.indexOf(markers.end)
+	if (endIndex < startIndex) throw new Error(`Demo slot "${slot}" markers are out of order`)
+	return body.slice(startIndex, endIndex + markers.end.length)
 }
 
 export function assertSupportedDemoVideo(file: string, size: number): void {
@@ -119,6 +201,28 @@ async function runCommand(command: string, args: string[], cwd: string): Promise
 			else rejectCommand(new Error(stderr.trim() || `${command} exited with code ${code}`))
 		})
 	})
+}
+
+interface PullRequestView {
+	body: string
+	number: number
+	state: string
+	url: string
+}
+
+async function viewPullRequest(
+	pr: string,
+	repo: string,
+	cwd: string,
+): Promise<PullRequestView> {
+	const result = JSON.parse(
+		await runCommand(
+			'gh',
+			['pr', 'view', pr, '--repo', repo, '--json', 'body,number,state,url'],
+			cwd,
+		),
+	) as { body: string | null; number: number; state: string; url: string }
+	return { ...result, body: result.body ?? '' }
 }
 
 async function launchGitHubContext(profileDir: string, headless: boolean): Promise<BrowserContext> {
@@ -390,6 +494,12 @@ export async function runPrDemoAttachment(
 
 	if (!parsed.pr) throw new Error('Missing --pr. Run with --help for usage.')
 	if (!parsed.file) throw new Error('Missing --file. Run with --help for usage.')
+	const placement = parsed.placement ?? 'comment'
+	if (parsed.slot && placement !== 'body') {
+		throw new Error('--slot requires --placement body')
+	}
+	const slot = parsed.slot ?? 'primary'
+	if (placement === 'body') prDemoBodySlotMarkers(slot)
 	const file = resolve(cwd, parsed.file)
 	const fileStat = await stat(file).catch(() => undefined)
 	if (!fileStat?.isFile()) throw new Error(`Recording does not exist: ${file}`)
@@ -399,13 +509,38 @@ export async function runPrDemoAttachment(
 	const repo =
 		parsed.repo ??
 		(await runCommand('gh', ['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner'], cwd))
-	const pr = JSON.parse(
-		await runCommand('gh', ['pr', 'view', parsed.pr, '--repo', repo, '--json', 'state,url'], cwd),
-	) as { state: string; url: string }
+	const pr = await viewPullRequest(parsed.pr, repo, cwd)
 	if (pr.state !== 'OPEN') throw new Error(`Pull request is ${pr.state.toLowerCase()}: ${pr.url}`)
 
 	log(`uploading ${file} to ${pr.url}`)
 	const attachmentUrl = await uploadRecording(profileDir, pr.url, file, parsed.headed)
+	if (placement === 'body') {
+		const block = buildPrDemoBodyBlock(attachmentUrl, slot, parsed.message)
+		const latestPr = await viewPullRequest(parsed.pr, repo, cwd)
+		if (latestPr.state !== 'OPEN') {
+			throw new Error(`Pull request is ${latestPr.state.toLowerCase()}: ${latestPr.url}`)
+		}
+		const updatedBody = upsertPrDemoBodySlot(latestPr.body, block, slot)
+		await runCommand(
+			'gh',
+			[
+				'api',
+				'--method',
+				'PATCH',
+				`repos/${repo}/pulls/${latestPr.number}`,
+				'-f',
+				`body=${updatedBody}`,
+			],
+			cwd,
+		)
+		const verifiedPr = await viewPullRequest(parsed.pr, repo, cwd)
+		if (readPrDemoBodySlot(verifiedPr.body, slot) !== block) {
+			throw new Error(`Could not verify demo slot "${slot}" after updating the PR description`)
+		}
+		log(`updated recording slot "${slot}" in the PR description: ${pr.url}`)
+		return
+	}
+
 	const comment = buildPrDemoComment(file, attachmentUrl, parsed.message)
 	const commentUrl = await runCommand(
 		'gh',

@@ -61,6 +61,11 @@ Run `attach-pr-demo.ts` with the consuming project's TypeScript runtime. This op
 requires `ws`; the core five-file recording runtime does not. Keep the two attachment files in the
 same directory because the executable imports the library relatively.
 
+The attachment CLI posts a PR comment by default. `--placement body --slot primary` instead owns a
+hidden, marker-delimited section of the PR description. Reusing a slot replaces only that section.
+Never replace the whole body from a stale copy: preserve content outside the markers and abort on
+partial, duplicate, invalid, or out-of-order markers.
+
 If the project has no Playwright yet: `npm i -D @playwright/test && npx playwright install chromium`.
 
 ## 2. Wire the config
