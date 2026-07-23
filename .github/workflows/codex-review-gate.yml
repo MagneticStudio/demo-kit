@@ -16,7 +16,7 @@ permissions:
   statuses: write
 
 concurrency:
-  group: codex-review-${{ github.event.pull_request.number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}
+  group: codex-review-${{ github.event_name == 'issue_comment' && !contains(github.event.comment.body, '@codex review') && github.run_id || github.event.pull_request.number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
