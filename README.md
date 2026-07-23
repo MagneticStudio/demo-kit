@@ -134,9 +134,28 @@ The window closes after DemoKit verifies the GitHub session. Then attach recordi
 npx demo-kit-attach --pr 195 --file test-results/demo.mp4 --message "Voice notes walkthrough"
 ```
 
+Comments are the default. To keep the latest recording in a stable section of the PR description,
+use a named body slot:
+
+```bash
+npx demo-kit-attach \
+  --pr 195 \
+  --file test-results/demo.mp4 \
+  --placement body \
+  --slot primary \
+  --message "Voice notes walkthrough"
+```
+
+DemoKit wraps that section in hidden, slot-specific markers. A later upload to the same slot
+replaces only the marked section with the new attachment URL; all content outside the markers is
+preserved. Missing markers are appended, while partial, duplicate, invalid, or out-of-order markers
+stop the command without editing the description. Each upload creates a new GitHub attachment URL;
+the stable slot is what makes it appear as an in-place replacement.
+
 The command uses the current repository and stores its ignored browser profile under
 `.cache/demo-kit/github-attachment`. Use `--repo owner/name`, `--profile-dir path`, or `--headed`
-to override those defaults.
+to override those defaults. Slot names may contain 1-64 lowercase letters, numbers, or hyphens;
+`primary` is used when `--slot` is omitted.
 
 For a vendored install, optionally copy `pr-attachment.ts` and `attach-pr-demo.ts` from the same
 DemoKit commit in addition to the five recording-runtime files. Run the entrypoint with the

@@ -20,6 +20,10 @@ test('parses login and upload options', () => {
 			'demo.mp4',
 			'--message',
 			'Voice notes walkthrough',
+			'--placement',
+			'body',
+			'--slot',
+			'voice-notes',
 			'--repo',
 			'MagneticStudio/standard-mail-routing',
 		]),
@@ -29,9 +33,79 @@ test('parses login and upload options', () => {
 			help: false,
 			login: false,
 			message: 'Voice notes walkthrough',
+			placement: 'body',
 			pr: '195',
 			repo: 'MagneticStudio/standard-mail-routing',
+			slot: 'voice-notes',
 		},
+	)
+	assert.throws(
+		() => attachment.parsePrDemoAttachmentArgs(['--placement', 'sidebar']),
+		/placement must be body or comment/,
+	)
+})
+
+test('appends a stable recording slot without changing existing PR content', () => {
+	const block = attachment.buildPrDemoBodyBlock(
+		'https://github.com/user-attachments/assets/new-video',
+		'primary',
+		'Updated walkthrough',
+	)
+	assert.equal(
+		block,
+		[
+			'<!-- demo-kit:recording:primary:start -->',
+			'## Demo',
+			'',
+			'Updated walkthrough',
+			'',
+			'https://github.com/user-attachments/assets/new-video',
+			'<!-- demo-kit:recording:primary:end -->',
+		].join('\n'),
+	)
+	assert.equal(
+		attachment.upsertPrDemoBodySlot('## Summary\n\nHuman-authored details.', block, 'primary'),
+		`## Summary\n\nHuman-authored details.\n\n${block}`,
+	)
+	assert.equal(attachment.upsertPrDemoBodySlot('', block, 'primary'), block)
+})
+
+test('replaces only the selected recording slot', () => {
+	const oldPrimary = attachment.buildPrDemoBodyBlock('https://example.com/old', 'primary')
+	const mobile = attachment.buildPrDemoBodyBlock('https://example.com/mobile', 'mobile')
+	const body = `Before\n\n${oldPrimary}\n\nBetween\n\n${mobile}\n\nAfter`
+	const replacement = attachment.buildPrDemoBodyBlock('https://example.com/new', 'primary')
+	const updated = attachment.upsertPrDemoBodySlot(body, replacement, 'primary')
+
+	assert.equal(updated, `Before\n\n${replacement}\n\nBetween\n\n${mobile}\n\nAfter`)
+	assert.equal(attachment.readPrDemoBodySlot(updated, 'primary'), replacement)
+	assert.equal(attachment.readPrDemoBodySlot(updated, 'mobile'), mobile)
+})
+
+test('fails closed for invalid slots and ambiguous markers', () => {
+	const block = attachment.buildPrDemoBodyBlock('https://example.com/new', 'primary')
+	assert.throws(() => attachment.prDemoBodySlotMarkers('Primary demo'), /lowercase letters/)
+	assert.throws(
+		() =>
+			attachment.upsertPrDemoBodySlot(
+				'<!-- demo-kit:recording:primary:start -->\nUnclosed',
+				block,
+				'primary',
+			),
+		/malformed or duplicate/,
+	)
+	assert.throws(
+		() => attachment.upsertPrDemoBodySlot(`${block}\n\n${block}`, block, 'primary'),
+		/malformed or duplicate/,
+	)
+	assert.throws(
+		() =>
+			attachment.upsertPrDemoBodySlot(
+				'<!-- demo-kit:recording:primary:end -->\n<!-- demo-kit:recording:primary:start -->',
+				block,
+				'primary',
+			),
+		/markers are out of order/,
 	)
 })
 
