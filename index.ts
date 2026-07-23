@@ -1,6 +1,6 @@
 export { DEMO, PAUSE, SETTLE, SLOWMO } from './mode'
 export { test, expect, createDemoTest, demoFixtures } from './overlay'
 export type { CursorPolicy, DemoTestOptions, DemoFixtures } from './overlay'
-export { setCaption, hold, smoothClick } from './helpers'
+export { scene, setCaption, hold, smoothClick } from './helpers'
 export { demoConfigDefaults, demoProjectUse } from './config'
 export type { DemoConfigOptions } from './config'

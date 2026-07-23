@@ -1,4 +1,4 @@
-import { createDemoTest, expect, setCaption } from 'demo-kit'
+import { createDemoTest, expect, scene, setCaption } from 'demo-kit'
 
 const test = createDemoTest({ cursor: 'always' })
 const documentUrl = (body: string) => `data:text/html,${encodeURIComponent(body)}`
@@ -31,4 +31,33 @@ test('keeps an active caption above a modal dialog', async ({ page }) => {
 			}),
 		)
 		.toBe(true)
+})
+
+test('captions are sticky across navigations', async ({ page }) => {
+	await page.goto(documentUrl('<h1>First</h1>'))
+	await setCaption(page, 'Sticky caption')
+	await page.goto(documentUrl('<h1>Second</h1>'))
+
+	await expect(page.locator('#__e2e-caption')).toHaveText('Sticky caption')
+	await expect(page.locator('#__e2e-caption')).toBeVisible()
+})
+
+test('a caption set before the document is ready still lands', async ({ page }) => {
+	await page.goto(documentUrl('<h1>Start</h1>'))
+	await Promise.all([page.goto(documentUrl('<h1>Late</h1>')), setCaption(page, 'Early caption')])
+
+	await expect(page.locator('#__e2e-caption')).toHaveText('Early caption')
+})
+
+test('scene sets the caption, runs the body, and reports a step', async ({ page }) => {
+	await page.goto(documentUrl('<button>Go</button>'))
+	let ran = false
+	await scene(page, 'Scene caption', async () => {
+		ran = true
+		await page.goto(documentUrl('<h1>Navigated inside scene</h1>'))
+	})
+
+	expect(ran).toBe(true)
+	await expect(page.locator('#__e2e-caption')).toHaveText('Scene caption')
+	await expect(page.locator('#__e2e-caption')).toBeVisible()
 })

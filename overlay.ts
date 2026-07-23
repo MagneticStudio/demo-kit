@@ -1,4 +1,6 @@
 import { test as base, expect } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { reapplyCaption } from './helpers'
 import { DEMO } from './mode'
 
 export type CursorPolicy = 'local-only' | 'always' | 'never'
@@ -43,6 +45,12 @@ const overlayScript = (cursorPolicy: CursorPolicy) => `(() => {
 			} else if (caption.matches(':popover-open')) {
 				caption.hidePopover()
 			}
+		}
+		// A caption set before this document finished installing (e.g. right after a navigation
+		// committed) is queued on the window; apply it now.
+		if (window.__e2ePendingCaption) {
+			window.__e2eCaption(window.__e2ePendingCaption)
+			delete window.__e2ePendingCaption
 		}
 
 		if (!cursorEnabled) return
@@ -151,6 +159,15 @@ export const demoFixtures = (
 		demoOverlay: [
 			async ({ context }, use) => {
 				await context.addInitScript(overlayScript(options.cursor ?? 'local-only'))
+				// Captions are sticky: re-apply the stored title after every main-frame navigation,
+				// since each new document boots a fresh (empty) overlay.
+				const wire = (page: Page) => {
+					page.on('framenavigated', (frame) => {
+						if (frame === page.mainFrame()) void reapplyCaption(page)
+					})
+				}
+				context.pages().forEach(wire)
+				context.on('page', wire)
 				await use()
 			},
 			{ auto: true },

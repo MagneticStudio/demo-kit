@@ -98,16 +98,21 @@ export default defineConfig({
 
 ```ts
 // tests/walkthrough.spec.ts
-import { test, expect, setCaption, hold, smoothClick } from 'demo-kit'
+import { test, expect, scene, smoothClick } from 'demo-kit'
 
 test('walkthrough', async ({ page }) => {
-	await page.goto('/thing')
-	await setCaption(page, 'The thing — enabled')
-	await smoothClick(page, page.getByRole('button', { name: 'Do it' }))
-	await expect(page.getByText('Done')).toBeVisible()
-	await hold(page)
+	await page.goto('/things')
+	await scene(page, 'The thing — enabled', async () => {
+		await smoothClick(page, page.getByRole('button', { name: 'Do it' }))
+		await expect(page.getByText('Done')).toBeVisible()
+	})
 })
 ```
+
+`scene(page, title, body)` is the narration primitive: one `test.step` whose title is also the
+on-screen caption, with the closing hold applied automatically. Outside demo mode it degrades to
+a plain `test.step`. Captions are **sticky** — they survive navigations inside the scene until
+replaced. (`setCaption`/`hold` remain available for manual control.)
 
 Scripts: `"test": "playwright test"` and `"record": "DEMO=true playwright test"`.
 
@@ -161,6 +166,18 @@ For a vendored install, optionally copy `pr-attachment.ts` and `attach-pr-demo.t
 DemoKit commit in addition to the five recording-runtime files. Run the entrypoint with the
 project's TypeScript runtime, for example `bun e2e/demo-kit/attach-pr-demo.ts`. The optional CLI
 also requires `ws`; it does not change the dependencies of the five-file recording runtime.
+
+## Writing demo specs
+
+- **One `scene()` per logical beat.** The title doubles as the report step and the caption —
+  short and descriptive, no title+description pairs.
+- **Never raw `page.waitForTimeout` in specs** — pacing lives in `scene`/`hold`/`smoothClick`.
+  Keeps specs lint-clean under `eslint-plugin-playwright`'s `no-wait-for-timeout` and means CI
+  mode stays fast automatically.
+- **Never branch on `DEMO` in a test body.** The one-spec-two-modes contract depends on it;
+  mode differences belong in the kit's helpers and fixtures.
+- **Prefer role/testid selectors and web-first assertions.** Flaky selectors ruin a take —
+  a retry in the middle of a recording is a re-shoot.
 
 ## Auth is yours to bring
 

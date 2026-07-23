@@ -114,10 +114,12 @@ import { test, expect, setCaption, hold, smoothClick } from 'demo-kit'
 
 Demo-spec conventions:
 
-- `setCaption(page, 'Short title')` immediately after each scene's page is ready — not after
-  the interactions, or the label appears late.
+- Structure specs as `scene(page, 'Short title', async () => { ... })` blocks — one per logical
+  beat. The title is both the `test.step` name and the on-screen caption; the closing hold is
+  automatic. Captions are sticky across navigations inside a scene.
 - `smoothClick(page, locator)` instead of `.click()` for anything the viewer should follow.
-- `hold(page)` at the end of each scene.
+- Never call `page.waitForTimeout` directly in a spec, and never branch on `DEMO` in a test
+  body — pacing and mode differences live in the kit.
 - Captions: one short title, no title+description pairs.
 
 ## 5. Auth (decide with the human)
