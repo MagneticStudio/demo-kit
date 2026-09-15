@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { createDemoTest, expect, setCaption } from 'demo-kit'
+import { createDemoTest, expect, setCaption, smoothClick } from 'demo-kit'
 
 const test = createDemoTest()
 
@@ -77,4 +77,27 @@ test('the ripple still animates under a hostile host stylesheet', async ({ page 
 	// Guards the cascade trap: important author declarations outrank animations, so weighting
 	// opacity or transform here would pin the ripple at its starting frame.
 	expect(ripple?.opacity).toBeLessThan(1)
+})
+
+// pointer-events is inherited, so the wrapper's value protects the arrow only until the page
+// declares its own. The arrow paints under the mouse hotspot, so a hit-testable arrow would
+// intercept the click smoothClick is lining up and fail actionability.
+test('host pointer-events rules cannot make the arrow intercept clicks', async ({ page }) => {
+	await page.goto(
+		`data:text/html,${encodeURIComponent(
+			`<!doctype html><html><head><style>
+				svg, path { pointer-events: auto !important }
+				* { pointer-events: auto !important }
+			</style></head><body>
+				<button id="go" onclick="window.__clicked = true">Go</button>
+			</body></html>`,
+		)}`,
+	)
+
+	await smoothClick(page, page.getByRole('button', { name: 'Go' }))
+
+	await expect(page.locator('#__e2e-cursor')).toBeVisible()
+	expect(await page.evaluate(() => (window as unknown as { __clicked?: boolean }).__clicked)).toBe(
+		true,
+	)
 })

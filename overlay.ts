@@ -120,7 +120,10 @@ const overlayScript = (cursorPolicy: CursorPolicy) => `(() => {
 		)
 
 		// viewBox and d have no CSS counterpart in play, so they stay attributes; everything a
-		// page rule could reach is set above instead.
+		// page rule could reach is set below instead. pointer-events is inherited, so the
+		// wrapper's value covers these only until the page declares its own on svg or path —
+		// and the arrow paints directly under the mouse hotspot, so becoming a hit target would
+		// make it intercept the click that smoothClick is lining up.
 		const svg = document.createElementNS(${JSON.stringify(SVG_NS)}, 'svg')
 		svg.setAttribute('viewBox', '0 0 24 24')
 		setStyle(svg, {
@@ -130,6 +133,7 @@ const overlayScript = (cursorPolicy: CursorPolicy) => `(() => {
 			overflow: 'visible',
 			visibility: 'visible',
 			opacity: '1',
+			'pointer-events': 'none',
 		})
 		const arrow = document.createElementNS(${JSON.stringify(SVG_NS)}, 'path')
 		arrow.setAttribute('d', ${JSON.stringify(ARROW_PATH)})
@@ -141,6 +145,7 @@ const overlayScript = (cursorPolicy: CursorPolicy) => `(() => {
 			'stroke-linejoin': 'round',
 			visibility: 'visible',
 			opacity: '1',
+			'pointer-events': 'none',
 		})
 		svg.appendChild(arrow)
 		cursor.appendChild(svg)
