@@ -174,25 +174,34 @@ const overlayScript = (cursorPolicy: CursorPolicy) => `(() => {
 					display: 'block',
 					width: '26px',
 					height: '26px',
-					'border-radius': '50%',
-					border: '2px solid rgba(210, 120, 0, 0.9)',
+					opacity: '1',
+					transform: 'translate(-13px, -13px)',
 					left: e.clientX + 'px',
 					top: e.clientY + 'px',
 				}),
 			)
-			// Deliberately unweighted: important author declarations outrank animations in the
-			// cascade, so marking transform or opacity would freeze the ripple mid-frame.
-			ripple.style.transform = 'translate(-13px, -13px)'
+			// The animated ring lives in a shadow root. Weighting opacity on the ring itself is
+			// not an option — important author declarations outrank animations, so it would pin
+			// the ripple at its opening frame — but leaving it unweighted in the host document
+			// lets a page rule setting an important opacity on div outrank the animation the
+			// other way and suppress the ripple entirely. Page selectors cannot match into a
+			// shadow tree, and neither opacity nor transform is inherited, so inside it the
+			// animation owns both outright. The host carries the static, weighted placement.
+			const ring = document.createElement('div')
+			ring.style.cssText =
+				'box-sizing:border-box;width:26px;height:26px;border-radius:50%;' +
+				'border:2px solid rgba(210, 120, 0, 0.9);'
+			ripple.attachShadow({ mode: 'open' }).appendChild(ring)
 			document.body.appendChild(ripple)
 			showTopLayer(ripple)
-			const ring = ripple.animate(
+			const anim = ring.animate(
 				[
-					{ transform: 'translate(-13px, -13px) scale(0.3)', opacity: 0.9 },
-					{ transform: 'translate(-13px, -13px) scale(1.6)', opacity: 0 },
+					{ transform: 'scale(0.3)', opacity: 0.9 },
+					{ transform: 'scale(1.6)', opacity: 0 },
 				],
 				{ duration: 500, easing: 'ease-out', fill: 'forwards' },
 			)
-			ring.onfinish = () => ripple.remove()
+			anim.onfinish = () => ripple.remove()
 			setTimeout(() => ripple.remove(), 550)
 		}, true)
 

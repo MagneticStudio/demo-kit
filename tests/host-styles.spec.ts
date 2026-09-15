@@ -62,21 +62,34 @@ test('the ripple still animates under a hostile host stylesheet', async ({ page 
 
 	const ripple = await page.evaluate(async () => {
 		document.dispatchEvent(new MouseEvent('mousedown', { clientX: 70, clientY: 80, bubbles: true }))
-		const el = document.querySelector('.__e2e-ripple')
-		if (!el) return null
-		const style = getComputedStyle(el)
-		const before = { animations: el.getAnimations().length, display: style.display }
-		// Two frames so the animation has certainly been applied.
-		await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-		return { ...before, opacity: Number.parseFloat(getComputedStyle(el).opacity) }
+		const host = document.querySelector('.__e2e-ripple')
+		const ring = host?.shadowRoot?.firstElementChild
+		if (!host || !ring) return null
+		const before = {
+			animations: ring.getAnimations().length,
+			hostDisplay: getComputedStyle(host).display,
+			hostOpacity: Number.parseFloat(getComputedStyle(host).opacity),
+		}
+		// Sample several frames: the ring fades from 0.9 to 0, so a live animation shows at
+		// least one frame strictly between the two.
+		const opacities: number[] = []
+		for (let i = 0; i < 5; i += 1) {
+			await new Promise((resolve) => requestAnimationFrame(resolve))
+			opacities.push(Number.parseFloat(getComputedStyle(ring).opacity))
+		}
+		return { ...before, opacities }
 	})
 
 	expect(ripple).not.toBeNull()
 	expect(ripple?.animations).toBeGreaterThan(0)
-	expect(ripple?.display).not.toBe('none')
-	// Guards the cascade trap: important author declarations outrank animations, so weighting
-	// opacity or transform here would pin the ripple at its starting frame.
-	expect(ripple?.opacity).toBeLessThan(1)
+	expect(ripple?.hostDisplay).not.toBe('none')
+	// The host is weighted, so the fixture's important opacity rule on div cannot reach it.
+	expect(ripple?.hostOpacity).toBe(1)
+	// The ring sits in a shadow tree the fixture's selectors cannot match, so the animation
+	// actually paints. Strictly above 0 is the whole point: an opacity pinned at 0 by a host
+	// rule would satisfy "less than 1" while being completely invisible.
+	const painted = (ripple?.opacities ?? []).filter((value) => value > 0 && value < 1)
+	expect(painted.length).toBeGreaterThan(0)
 })
 
 // pointer-events is inherited, so the wrapper's value protects the arrow only until the page

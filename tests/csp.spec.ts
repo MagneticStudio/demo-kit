@@ -74,12 +74,13 @@ test('animates the click ripple through the Web Animations API', async ({ page }
 	// Dispatched synchronously so the ripple can be inspected before it removes itself.
 	const ripple = await page.evaluate(() => {
 		document.dispatchEvent(new MouseEvent('mousedown', { clientX: 90, clientY: 110, bubbles: true }))
-		const el = document.querySelector('.__e2e-ripple')
-		if (!el) return null
+		const host = document.querySelector('.__e2e-ripple')
+		const ring = host?.shadowRoot?.firstElementChild
+		if (!host || !ring) return null
 		return {
-			animations: el.getAnimations().length,
-			borderColor: getComputedStyle(el).borderColor,
-			left: (el as HTMLElement).style.left,
+			animations: ring.getAnimations().length,
+			borderColor: getComputedStyle(ring).borderColor,
+			left: (host as HTMLElement).style.left,
 		}
 	})
 
