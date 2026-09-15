@@ -10,9 +10,10 @@ What it gives you:
   `DEMO=true` opts into recording: one worker, no retries, slowMo, paced holds, cursor overlay,
   and always-on video. Conventional usage stays conventional — recording is the add-on.
 - **Visible cursor** — SVG arrow that glides between targets (Playwright's pointer teleports;
-  a CSS transition smooths it), click ripple, kept above native `<dialog>` modals via the
-  Popover API. Defaults to localhost-only because strict-CSP pages (e.g. hosted auth UIs) block
-  the injected style; captions still work there (programmatic styles survive CSP).
+  a transition smooths it), click ripple, kept above native `<dialog>` modals via the Popover
+  API. Renders on strict-CSP pages (e.g. hosted auth UIs) as well: overlay styles are applied
+  through the CSSOM, the arrow is SVG DOM rather than a data: URI, and the ripple animates
+  through the Web Animations API. `style-src` and `img-src` govern none of those.
 - **Corner captions** — one short label, bottom-left, blurred translucent pill. Set it when a
   scene's page loads, not after the interactions, or it shows up late.
 - **Config factories** encoding the sharp edges: explicit `video.size` (bare `'on'` downscales
@@ -219,7 +220,9 @@ from `@playwright/test` works identically.
 | `DEMO_SETTLE` | 550 | ms cursor-glide settle before clicks |
 | `DEMO_SLOWMO` | 450 | Playwright slowMo ms |
 
-`createDemoTest({ cursor: 'always' | 'local-only' | 'never' })` controls the cursor overlay.
+`createDemoTest({ cursor })` controls the cursor overlay: `'always'` (the default) draws it
+everywhere, `'local-only'` restricts it to `localhost`/`127.0.0.1`, and `'never'` leaves captions
+as the only overlay.
 Timing overrides must be finite, non-negative numbers. Video width and height must be positive
 integers.
 
