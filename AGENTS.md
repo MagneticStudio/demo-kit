@@ -150,10 +150,10 @@ gate's polling window, use the same comment to recheck its late approval.
 
 - Video is 800px wide → something replaced the video setting with bare `'on'`; use
   `demoConfigDefaults()` (it sets an explicit size).
-- No cursor in the video → the page isn't on localhost (cursor defaults to `local-only`
-  for CSP safety). Use `createDemoTest({ cursor: 'always' })` if the target allows
-  injected styles.
+- No cursor in the video → `cursor` is set to `'never'`, or to `'local-only'` against a
+  target that isn't `localhost`. The default is `'always'`, which works on strict-CSP pages.
 - Cursor vanishes when a modal opens → only native `<dialog>` is auto-handled; other
   top-layer implementations may need the same Popover re-show trick.
-- Caption missing on a strict-CSP page → expected for the cursor, but captions use
-  programmatic styles and should still render; if not, the page likely blocks `addInitScript`.
+- Nothing renders on a strict-CSP page → both overlays avoid the primitives CSP blocks, so a
+  page that shows neither is most likely blocking `addInitScript` itself. Re-check against
+  `tests/csp.spec.ts`, which pins this behavior under `style-src 'none'; img-src 'none'`.
