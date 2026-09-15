@@ -31,6 +31,7 @@
 		"check:package": "publint && attw --pack .",
 		"typecheck": "tsc --project tsconfig.json",
 		"prepare": "tsdown",
+		"record:reel": "cross-env DEMO=true playwright test --config demo/reel.config.ts",
 		"test": "npm run typecheck && npm run build && npm run check:package && npm run test:unit && npm run test:plain && npm run test:demo",
 		"test:unit": "node --test --test-concurrency=1 tests/*.test.cjs",
 		"test:plain": "cross-env DEMO=false playwright test --config tests/playwright.config.ts plain.spec.ts",
