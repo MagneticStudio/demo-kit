@@ -47,6 +47,7 @@ const overlayScript = (cursorPolicy: CursorPolicy) => `(() => {
 		caption.id = '__e2e-caption'
 		caption.setAttribute('popover', 'manual')
 		setStyle(caption, {
+			all: 'initial',
 			position: 'fixed',
 			inset: 'auto',
 			left: '24px',
@@ -92,6 +93,7 @@ const overlayScript = (cursorPolicy: CursorPolicy) => `(() => {
 		// Shared resets. The explicit inset/margin/border/padding also override the UA
 		// stylesheet's [popover] rules.
 		const BASE = {
+			all: 'initial',
 			position: 'fixed',
 			inset: 'auto',
 			margin: '0',
@@ -119,11 +121,18 @@ const overlayScript = (cursorPolicy: CursorPolicy) => `(() => {
 			}),
 		)
 
-		// viewBox and d have no CSS counterpart in play, so they stay attributes; everything a
-		// page rule could reach is set below instead. pointer-events is inherited, so the
-		// wrapper's value covers these only until the page declares its own on svg or path —
-		// and the arrow paints directly under the mouse hotspot, so becoming a hit target would
-		// make it intercept the click that smoothClick is lining up.
+		// The arrow lives in a shadow root, like the ripple's ring: weighting declarations only
+		// covers the properties named here, and a page reset reaching the light DOM with
+		// something unnamed (transform, clip-path, padding) still collapses the arrow. Page
+		// selectors cannot match into a shadow tree at all, which closes the whole class.
+		//
+		// The weighted declarations below stay, because isolation alone is not enough: fill,
+		// stroke, visibility and pointer-events are inherited, so their values cross the
+		// boundary from the host. A direct declaration beats an inherited one, so setting them
+		// here pins them. pointer-events in particular matters because the arrow paints under
+		// the mouse hotspot, and a hit-testable arrow intercepts the click smoothClick lines up.
+		//
+		// viewBox and d have no CSS counterpart in play, so they stay attributes.
 		const svg = document.createElementNS(${JSON.stringify(SVG_NS)}, 'svg')
 		svg.setAttribute('viewBox', '0 0 24 24')
 		setStyle(svg, {
@@ -148,7 +157,7 @@ const overlayScript = (cursorPolicy: CursorPolicy) => `(() => {
 			'pointer-events': 'none',
 		})
 		svg.appendChild(arrow)
-		cursor.appendChild(svg)
+		cursor.attachShadow({ mode: 'open' }).appendChild(svg)
 		document.body.appendChild(cursor)
 
 		let seen = false

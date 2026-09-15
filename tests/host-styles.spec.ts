@@ -8,9 +8,16 @@ const test = createDemoTest()
 // an inline important declaration outranks an important rule from a stylesheet.
 const HOSTILE = `
 	div { position: static !important; display: none !important; opacity: 0 !important;
-		visibility: hidden !important; width: auto !important; height: auto !important }
+		visibility: hidden !important; width: auto !important; height: auto !important;
+		/* Unenumerated on the host too, and clipping is invisible to boundingBox(), so only
+		   the all: initial reset stops these. */
+		clip-path: inset(100%) !important; filter: opacity(0) !important }
 	svg { width: 1em !important; height: 1em !important; display: none !important;
-		visibility: hidden !important; overflow: hidden !important }
+		visibility: hidden !important; overflow: hidden !important;
+		/* Properties the overlay's weighted declarations never enumerate: isolation, not
+		   enumeration, is what has to stop these. */
+		transform: scale(0) !important; clip-path: inset(100%) !important;
+		padding: 40px !important; margin: 40px !important; filter: opacity(0) !important }
 	path { fill: none !important; stroke: none !important; stroke-width: 0 !important;
 		display: none !important; visibility: hidden !important }
 `
@@ -32,7 +39,9 @@ test('the arrow keeps its geometry and paint under a hostile host stylesheet', a
 	expect(box?.height).toBe(24)
 
 	const paint = await page.evaluate(() => {
-		const path = document.querySelector('#__e2e-cursor svg path') as SVGPathElement
+		const path = document
+			.getElementById('__e2e-cursor')
+			?.shadowRoot?.querySelector('path') as SVGPathElement
 		const style = getComputedStyle(path)
 		return {
 			fill: style.fill,
@@ -47,6 +56,28 @@ test('the arrow keeps its geometry and paint under a hostile host stylesheet', a
 	expect(paint.strokeWidth).toBe('1.4px')
 	expect(paint.display).not.toBe('none')
 	expect(paint.visibility).toBe('visible')
+
+	// The fixture's transform/clip-path/filter rules are the ones no enumeration would have
+	// covered. They must not have reached the arrow at all.
+	const geometry = await page.evaluate(() => {
+		const svg = document.getElementById('__e2e-cursor')?.shadowRoot?.querySelector('svg')
+		if (!svg) return null
+		const style = getComputedStyle(svg)
+		return { transform: style.transform, clipPath: style.clipPath, filter: style.filter }
+	})
+	expect(geometry?.transform).toBe('none')
+	expect(geometry?.clipPath).toBe('none')
+	expect(geometry?.filter).toBe('none')
+
+	// The host is the one element that cannot be isolated, since something has to sit in the
+	// light DOM. Its `all: initial` reset is what keeps the fixture's clip-path and filter off
+	// it — note a clipped host would still report a 24x24 box above, so this is not redundant.
+	const hostStyle = await page.evaluate(() => {
+		const style = getComputedStyle(document.getElementById('__e2e-cursor') as Element)
+		return { clipPath: style.clipPath, filter: style.filter }
+	})
+	expect(hostStyle.clipPath).toBe('none')
+	expect(hostStyle.filter).toContain('drop-shadow')
 })
 
 test('the caption still renders under a hostile host stylesheet', async ({ page }) => {

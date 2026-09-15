@@ -41,7 +41,7 @@ test('draws the arrow as SVG DOM, with no stylesheet and no background image', a
 	await expect(arrow).toHaveAttribute('d', /^M3 2 L3 19/)
 	expect(
 		await page.evaluate(
-			() => getComputedStyle(document.querySelector('#__e2e-cursor svg path') as Element).fill,
+			() => getComputedStyle((document.getElementById('__e2e-cursor')?.shadowRoot?.querySelector('path') as Element)).fill,
 		),
 	).toBe('rgb(17, 24, 39)')
 
