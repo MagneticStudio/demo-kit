@@ -33,21 +33,48 @@ const overlayScript = (cursorPolicy: CursorPolicy) => `(() => {
 			} catch (_) {}
 		}
 
+		// Every overlay declaration goes in weighted, through the CSSOM. The overlay lives in the
+		// host document, so the page's own rules could otherwise move, resize, repaint or hide
+		// it, and presentation attributes (the arrow's old fill/stroke/width) are the weakest
+		// author styles of all, so any rule targeting svg or path would beat them. An inline
+		// important declaration outranks an important rule from a stylesheet, so this holds even
+		// against a hostile reset.
+		const setStyle = (el, styles) => {
+			for (const name in styles) el.style.setProperty(name, styles[name], 'important')
+		}
+
 		const caption = document.createElement('div')
 		caption.id = '__e2e-caption'
 		caption.setAttribute('popover', 'manual')
-		caption.style.cssText =
-			'position:fixed;inset:auto;left:24px;bottom:24px;margin:0;max-width:460px;' +
-			'padding:9px 15px;background:rgba(17,24,39,0.42);' +
-			'-webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);' +
-			'color:#fff;border:0;border-radius:10px;' +
-			'font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;font-weight:600;' +
-			'box-shadow:0 4px 14px rgba(0,0,0,0.18);z-index:2147483647;pointer-events:none;display:none;'
+		setStyle(caption, {
+			position: 'fixed',
+			inset: 'auto',
+			left: '24px',
+			bottom: '24px',
+			margin: '0',
+			'max-width': '460px',
+			padding: '9px 15px',
+			background: 'rgba(17,24,39,0.42)',
+			'-webkit-backdrop-filter': 'blur(9px)',
+			'backdrop-filter': 'blur(9px)',
+			color: '#fff',
+			border: '0',
+			'border-radius': '10px',
+			'font-family': '-apple-system,Segoe UI,Roboto,sans-serif',
+			'font-size': '15px',
+			'font-weight': '600',
+			'box-shadow': '0 4px 14px rgba(0,0,0,0.18)',
+			'z-index': '2147483647',
+			'pointer-events': 'none',
+			visibility: 'visible',
+			opacity: '1',
+			display: 'none',
+		})
 		document.body.appendChild(caption)
 		window.__e2eCaption = (title) => {
 			caption.textContent = title || ''
 			if (title) {
-				caption.style.display = 'block'
+				setStyle(caption, { display: 'block' })
 				showTopLayer(caption)
 			} else if (caption.matches(':popover-open')) {
 				caption.hidePopover()
@@ -62,57 +89,95 @@ const overlayScript = (cursorPolicy: CursorPolicy) => `(() => {
 
 		if (!cursorEnabled) return
 
-		// Shared resets for the cursor and ripple. The explicit inset/margin/border/padding
-		// override the UA stylesheet's [popover] rules; an inline declaration beats a UA one.
-		const OVERLAY =
-			'position:fixed;inset:auto;margin:0;padding:0;border:0;background:transparent;' +
-			'pointer-events:none;overflow:visible;z-index:2147483647;'
+		// Shared resets. The explicit inset/margin/border/padding also override the UA
+		// stylesheet's [popover] rules.
+		const BASE = {
+			position: 'fixed',
+			inset: 'auto',
+			margin: '0',
+			padding: '0',
+			border: '0',
+			background: 'transparent',
+			'pointer-events': 'none',
+			overflow: 'visible',
+			visibility: 'visible',
+			'z-index': '2147483647',
+		}
 
 		const cursor = document.createElement('div')
 		cursor.id = '__e2e-cursor'
 		cursor.setAttribute('popover', 'manual')
-		cursor.style.cssText = OVERLAY +
-			'width:24px;height:24px;transform:translate(-3px, -2px);' +
-			'filter:drop-shadow(0 1px 1.5px rgba(0,0,0,0.35));display:none;'
+		setStyle(
+			cursor,
+			Object.assign({}, BASE, {
+				width: '24px',
+				height: '24px',
+				opacity: '1',
+				transform: 'translate(-3px, -2px)',
+				filter: 'drop-shadow(0 1px 1.5px rgba(0,0,0,0.35))',
+				display: 'none',
+			}),
+		)
 
+		// viewBox and d have no CSS counterpart in play, so they stay attributes; everything a
+		// page rule could reach is set above instead.
 		const svg = document.createElementNS(${JSON.stringify(SVG_NS)}, 'svg')
-		svg.setAttribute('width', '24')
-		svg.setAttribute('height', '24')
 		svg.setAttribute('viewBox', '0 0 24 24')
+		setStyle(svg, {
+			display: 'block',
+			width: '24px',
+			height: '24px',
+			overflow: 'visible',
+			visibility: 'visible',
+			opacity: '1',
+		})
 		const arrow = document.createElementNS(${JSON.stringify(SVG_NS)}, 'path')
 		arrow.setAttribute('d', ${JSON.stringify(ARROW_PATH)})
-		arrow.setAttribute('fill', '#111827')
-		arrow.setAttribute('stroke', 'white')
-		arrow.setAttribute('stroke-width', '1.4')
-		arrow.setAttribute('stroke-linejoin', 'round')
+		setStyle(arrow, {
+			display: 'inline',
+			fill: '#111827',
+			stroke: '#fff',
+			'stroke-width': '1.4',
+			'stroke-linejoin': 'round',
+			visibility: 'visible',
+			opacity: '1',
+		})
 		svg.appendChild(arrow)
 		cursor.appendChild(svg)
 		document.body.appendChild(cursor)
 
 		let seen = false
 		document.addEventListener('mousemove', (e) => {
-			cursor.style.left = e.clientX + 'px'
-			cursor.style.top = e.clientY + 'px'
+			setStyle(cursor, { left: e.clientX + 'px', top: e.clientY + 'px' })
 			if (!seen) {
 				seen = true
-				cursor.style.display = 'block'
+				setStyle(cursor, { display: 'block' })
 				showTopLayer(cursor)
 				// Glide only once a real position has landed, so the first appearance doesn't
-				// slide in from the corner.
-				requestAnimationFrame(() => {
-					cursor.style.transition = ${JSON.stringify(GLIDE)}
-				})
+				// slide in from the corner. Transitions outrank important declarations in the
+				// cascade, so the weighted left/top still animate.
+				requestAnimationFrame(() => setStyle(cursor, { transition: ${JSON.stringify(GLIDE)} }))
 			}
 		}, true)
 		document.addEventListener('mousedown', (e) => {
 			const ripple = document.createElement('div')
 			ripple.className = '__e2e-ripple'
 			ripple.setAttribute('popover', 'manual')
-			ripple.style.cssText = OVERLAY +
-				'width:26px;height:26px;border-radius:50%;' +
-				'border:2px solid rgba(210, 120, 0, 0.9) !important;' +
-				'transform:translate(-13px, -13px);' +
-				'left:' + e.clientX + 'px;top:' + e.clientY + 'px;'
+			setStyle(
+				ripple,
+				Object.assign({}, BASE, {
+					display: 'block',
+					width: '26px',
+					height: '26px',
+					'border-radius': '50%',
+					border: '2px solid rgba(210, 120, 0, 0.9)',
+					left: e.clientX + 'px',
+					top: e.clientY + 'px',
+				}),
+			)
+			// Deliberately unweighted: important author declarations outrank animations in the
+			// cascade, so marking transform or opacity would freeze the ripple mid-frame.
+			ripple.style.transform = 'translate(-13px, -13px)'
 			document.body.appendChild(ripple)
 			showTopLayer(ripple)
 			const ring = ripple.animate(
